@@ -173,8 +173,14 @@ const googleTranslation = async (
   return `"${token}"${pad} = "${translation}"; //AUTO "${textToTranslate}"${extra}`;
 };
 
-const fileLines = (path: string): readonly string[] =>
-  readFileSync(path).toString().split('\n');
+const fileLines = (path: string): readonly string[] => {
+  // eslint-disable-next-line functional/no-try-statement
+  try {
+    return readFileSync(path).toString().split('\n');
+  } catch (ENOENT: unknown) {
+    return [];
+  }
+};
 
 const allOutputFileTokens = (
   lines: readonly string[]
@@ -248,9 +254,7 @@ export default ({ command }: RootCommand): Argv<unknown> =>
 
       const translated: readonly string[] = await allLineTranslation(
         inputFileLines,
-        args.outputFilePath !== undefined
-          ? allOutputFileTokens(fileLines(outputFilePath))
-          : undefined
+        allOutputFileTokens(fileLines(outputFilePath))
       );
 
       // eslint-disable-next-line functional/no-expression-statement
