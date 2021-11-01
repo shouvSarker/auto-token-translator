@@ -3,133 +3,14 @@ import { RootCommand } from '..';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { Translate } from '@google-cloud/translate/build/src/v2';
+import { INDENT, CODES } from './translate.defaults';
 
-const INDENT = 32;
-
-// List of language codes available for google translate and required for the app.
-// Saving them separately as api requests are expensive and we can customise which languages to support.
-const CODES: {
-  readonly [key: string]: string;
-} = {
-  Afrikaans: 'af',
-  Albanian: 'sq',
-  Amharic: 'am',
-  Arabic: 'ar',
-  Armenian: 'hy',
-  Azerbaijani: 'az',
-  Basque: 'eu',
-  Belarusian: 'be',
-  Bengali: 'bn',
-  Bosnian: 'bs',
-  Bulgarian: 'bg',
-  Catalan: 'ca',
-  Cebuano: 'ceb',
-  Chinese: 'zh',
-  ChineseSimplified: 'zh-CN ',
-  ChineseTraditional: 'zh-TW',
-  Corsican: 'co',
-  Croatian: 'hr',
-  Czech: 'cs',
-  Danish: 'da',
-  Dutch: 'nl',
-  English: 'en',
-  Esperanto: 'eo',
-  Estonian: 'et',
-  Finnish: 'fi',
-  French: 'fr',
-  Frisian: 'fy',
-  Galician: 'gl',
-  Georgian: 'ka',
-  German: 'de',
-  Greek: 'el',
-  Gujarati: 'gu',
-  Haitian: 'ht',
-  Creole: 'ht',
-  Hausa: 'ha',
-  Hawaiian: 'haw',
-  Hebrew: 'he',
-  HebrewOld: 'iw',
-  Hindi: 'hi',
-  Hmong: 'hmn',
-  Hungarian: 'hu',
-  Icelandic: 'is',
-  Igbo: 'ig',
-  Indonesian: 'id',
-  Irish: 'ga',
-  Italian: 'it',
-  Japanese: 'ja',
-  Javanese: 'jv',
-  Kannada: 'kn',
-  Kazakh: 'kk',
-  Khmer: 'km',
-  Kinyarwanda: 'rw',
-  Korean: 'ko',
-  Kurdish: 'ku',
-  Kyrgyz: 'ky',
-  Lao: 'lo',
-  Latvian: 'lv',
-  Lithuanian: 'lt',
-  Luxembourgish: 'lb',
-  Macedonian: 'mk',
-  Malagasy: 'mg',
-  Malay: 'ms',
-  Malayalam: 'ml',
-  Maltese: 'mt',
-  Maori: 'mi',
-  Marathi: 'mr',
-  Mongolian: 'mn',
-  Myanmar: 'my',
-  Burmese: 'my',
-  Nepali: 'ne',
-  Norwegian: 'no',
-  Nyanja: 'ny',
-  Chichewa: 'ny',
-  Odia: 'or',
-  Oriya: 'or',
-  Pashto: 'ps',
-  Persian: 'fa',
-  Polish: 'pl',
-  Portuguese: 'pt',
-  Punjabi: 'pa',
-  Romanian: 'ro',
-  Russian: 'ru',
-  Samoan: 'sm',
-  Scots: 'gd',
-  Gaelic: 'gd',
-  Serbian: 'sr',
-  Sesotho: 'st',
-  Shona: 'sn',
-  Sindhi: 'sd',
-  Sinhala: 'si',
-  Sinhalese: 'si',
-  Slovak: 'sk',
-  Slovenian: 'sl',
-  Somali: 'so',
-  Spanish: 'es',
-  Sundanese: 'su',
-  Swahili: 'sw',
-  Swedish: 'sv',
-  Tagalog: 'tl',
-  Filipino: 'tl',
-  Tajik: 'tg',
-  Tamil: 'ta',
-  Tatar: 'tt',
-  Telugu: 'te',
-  Thai: 'th',
-  Turkish: 'tr',
-  Turkmen: 'tk',
-  Ukrainian: 'uk',
-  Urdu: 'ur',
-  Uyghur: 'ug',
-  Uzbek: 'uz',
-  Vietnamese: 'vi',
-  Welsh: 'cy',
-  Xhosa: 'xh',
-  Yiddish: 'yi',
-  Yoruba: 'yo',
-  Zulu: 'zu',
-};
-
+/**
+ * Creates those directories of a path that doesn't exist.
+ *
+ * @param path The directory path to create if it doesn't exist.
+ * @returns nothing, just creates the path or does nothing if it already exists.
+ */
 // eslint-disable-next-line functional/no-return-void
 const ensureDirectory = (path: string): void => {
   const folder: string = dirname(path);
@@ -142,21 +23,11 @@ const ensureDirectory = (path: string): void => {
 };
 
 const googleTranslation = async (
-  supplied: readonly string[]
+  supplied: readonly [string, string, readonly string[]]
 ): Promise<string> => {
-  // eslint-disable-next-line functional/no-conditional-statement
-  if (supplied[0] === undefined || supplied[1] === undefined) {
-    // eslint-disable-next-line functional/no-throw-statement
-    throw new Error(
-      `Cannot find token and text to translate in matched line segments ${supplied.join(
-        ','
-      )}`
-    );
-  }
-
   const token: string = supplied[0];
   const textToTranslate: string = supplied[1];
-  const extra: string = supplied[2] !== undefined ? supplied[2] : '';
+  const extra: string = supplied[2].length > 0 ? supplied[2].join(' ') : '';
 
   const translator = new Translate();
   // First array element from google translation's response will be the translated text.
@@ -209,19 +80,26 @@ const allLineTranslation = (
     const lineWithTokenExceptSpace: readonly string[] = line
       .split(/"([^"]+)"\s*=\s*"([^"]+)"(.*$)/u)
       .filter((elem) => /\S/u.test(elem));
+
+    // If the first and second member of the array is not defined it means that we did not find desired pattern "token"="value"
     // eslint-disable-next-line functional/no-conditional-statement
-    if (lineWithTokenExceptSpace.length <= 1) return line;
+    if (
+      lineWithTokenExceptSpace[0] !== undefined &&
+      lineWithTokenExceptSpace[1] !== undefined
+    ) {
+      const preExistingToken = preExistingTokens?.find(
+        (elem) => elem.token === lineWithTokenExceptSpace[0]
+      );
 
-    const preExistingToken =
-      preExistingTokens !== undefined
-        ? preExistingTokens.find(
-            (elem) => elem.token === lineWithTokenExceptSpace[0]
-          )
-        : undefined;
-
-    return preExistingToken !== undefined
-      ? preExistingToken.line
-      : await googleTranslation(lineWithTokenExceptSpace);
+      return preExistingToken !== undefined
+        ? preExistingToken.line
+        : await googleTranslation([
+            lineWithTokenExceptSpace[0],
+            lineWithTokenExceptSpace[1],
+            lineWithTokenExceptSpace.slice(2),
+          ]);
+    }
+    return line;
   });
   return Promise.all(promises);
 };
