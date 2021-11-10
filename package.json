@@ -41,7 +41,7 @@
     "eslint-config-prettier": "^8.2.0",
     "eslint-config-typed-fp": "^1.6.0",
     "eslint-plugin-functional": "^4.0.2",
-    "eslint-plugin-import": "^2.25.2",
+    "eslint-plugin-import": "^2.25.3",
     "eslint-plugin-jest": "^25.2.4",
     "eslint-plugin-jsdoc": "^37.0.3",
     "eslint-plugin-prettier": "^4.0.0",
